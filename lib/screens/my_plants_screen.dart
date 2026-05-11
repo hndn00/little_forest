@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:little_forest/screens/daily_log/daily_log_list_screen.dart';
 import 'package:little_forest/theme/app_theme.dart';
 
 class MyPlantsScreen extends StatelessWidget {
@@ -97,7 +98,12 @@ class MyPlantsScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DailyLogListScreen())
+                      );
+                    },
                     icon: const Icon(Icons.alarm, color: Colors.white),
                     label: const Text(
                       'timestamp',
@@ -116,7 +122,7 @@ class MyPlantsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
+                ), 
                 const SizedBox(height: 12),
                 // Walking button
                 SizedBox(
