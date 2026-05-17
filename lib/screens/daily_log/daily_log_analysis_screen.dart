@@ -415,7 +415,7 @@ class _RewardPageState extends State<_RewardPage>
                       _ActivityIcon(type: widget.activityType),
                       const SizedBox(height: 20),
                       Text(
-                        '${result.displayName}',
+                        result.displayName,
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,

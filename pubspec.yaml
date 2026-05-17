@@ -23,7 +23,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-
+  build_runner: ">=2.4.13 <2.4.16"
 
 flutter:
   uses-material-design: true
