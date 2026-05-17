@@ -1,45 +1,47 @@
 // screens/daily_log/daily_log_analysis_screen.dart
-//
-// 3단계: 라벨 결과 (progress bar) → 4단계: 활동 판별 → 5단계: 리워드 팝업
-// PageController로 세 단계 전환
 
 import 'package:flutter/material.dart';
 import '../../models/daily_log_models.dart';
+import '../../services/event_bus.dart';
+import '../../events/app_event.dart';
 
-// ── 진입점: 분석 시작 화면 ────────────────────────────────
+const _mockLabels = [
+  VisionLabel(label: 'Park', confidence: 0.97),
+  VisionLabel(label: 'Tree', confidence: 0.94),
+  VisionLabel(label: 'Nature', confidence: 0.91),
+  VisionLabel(label: 'Sky', confidence: 0.88),
+  VisionLabel(label: 'Outdoor', confidence: 0.85),
+];
+
 class DailyLogAnalysisScreen extends StatefulWidget {
   final DailyLogEntry entry;
 
   const DailyLogAnalysisScreen({super.key, required this.entry});
 
   @override
-  State<DailyLogAnalysisScreen> createState() =>
-      _DailyLogAnalysisScreenState();
+  State<DailyLogAnalysisScreen> createState() => _DailyLogAnalysisScreenState();
 }
 
 class _DailyLogAnalysisScreenState extends State<DailyLogAnalysisScreen> {
-  // 0 = 라벨 결과, 1 = 활동 판별, 2 = 리워드
   final PageController _pageController = PageController();
-  int _page = 0;
-
-  // Mock: Training으로 고정 (실제는 Vision API 결과)
-  final ActivityType _mockActivity = ActivityType.training;
-
-  @override
-  void initState() {
-    super.initState();
-    // 진입 즉시 분석 완료된 것처럼 라벨 화면 보여줌
+  void _goToStep(int step) {
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
   }
 
-  void _nextPage() {
-    if (_page < 2) {
-      setState(() => _page++);
-      _pageController.animateToPage(
-        _page,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    }
+  void _onRewardConfirmed() {
+    AppEventBus().emit(SettLogUploaded(capturedAt: widget.entry.capturedAt));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('나무가 성장했어요!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Navigator.pop(context);
+    Navigator.pop(context);
   }
 
   @override
@@ -47,34 +49,25 @@ class _DailyLogAnalysisScreenState extends State<DailyLogAnalysisScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFEEF3EE),
       appBar: _buildAppBar(),
-      body: Stack(
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
-          PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              // 3단계: 라벨 결과
-              _LabelResultPage(
-                entry: widget.entry,
-                activityType: _mockActivity,
-                onNext: _nextPage,
-              ),
-              // 4단계: 활동 판별
-              _ActivityResultPage(
-                entry: widget.entry,
-                activityType: _mockActivity,
-                onNext: _nextPage,
-              ),
-              // 5단계: 리워드 팝업 (오버레이)
-              _RewardPage(
-                entry: widget.entry,
-                activityType: _mockActivity,
-                onDone: () => Navigator.popUntil(
-                  context,
-                  (route) => route.isFirst,
-                ),
-              ),
-            ],
+          _UploadConfirmPage(
+            entry: widget.entry,
+            onNext: () => _goToStep(1),
+          ),
+          _AnalyzingPage(
+            entry: widget.entry,
+            onDone: () => _goToStep(2),
+          ),
+          _ActivityResultPage(
+            entry: widget.entry,
+            onNext: () => _goToStep(3),
+          ),
+          _RewardPage(
+            entry: widget.entry,
+            onDone: _onRewardConfirmed,
           ),
         ],
       ),
@@ -91,14 +84,13 @@ class _DailyLogAnalysisScreenState extends State<DailyLogAnalysisScreen> {
             color: Color(0xFF1A3A2A), size: 20),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Row(
+      title: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.edit_outlined,
-              color: Color(0xFF1A3A2A), size: 18),
-          const SizedBox(width: 6),
-          const Text(
-            '분석 결과',
+          Icon(Icons.edit_outlined, color: Color(0xFF1A3A2A), size: 18),
+          SizedBox(width: 6),
+          Text(
+            '사진 분석',
             style: TextStyle(
               color: Color(0xFF1A3A2A),
               fontSize: 16,
@@ -112,60 +104,113 @@ class _DailyLogAnalysisScreenState extends State<DailyLogAnalysisScreen> {
   }
 }
 
-// ── 3단계: Vision 라벨 결과 화면 ─────────────────────────
-class _LabelResultPage extends StatefulWidget {
+// ── Step 1: 이미지 업로드 확인 ─────────────────────────────
+class _UploadConfirmPage extends StatelessWidget {
   final DailyLogEntry entry;
-  final ActivityType activityType;
   final VoidCallback onNext;
 
-  const _LabelResultPage({
-    required this.entry,
-    required this.activityType,
-    required this.onNext,
-  });
+  const _UploadConfirmPage({required this.entry, required this.onNext});
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      '1월', '2월', '3월', '4월', '5월', '6월',
+      '7월', '8월', '9월', '10월', '11월', '12월',
+    ];
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '${dt.year}년 ${months[dt.month - 1]} ${dt.day}일  $hour:$min';
+  }
 
   @override
-  State<_LabelResultPage> createState() => _LabelResultPageState();
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _AnalysisPhotoCard(entry: entry),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.access_time,
+                    color: Color(0xFF4A8C62), size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  _formatDate(entry.capturedAt),
+                  style: const TextStyle(
+                    color: Color(0xFF1A3A2A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          _PrimaryButton(label: '사진 분석하기', onTap: onNext),
+        ],
+      ),
+    );
+  }
 }
 
-class _LabelResultPageState extends State<_LabelResultPage>
+// ── Step 2: 분석 중 (2초 딜레이) ──────────────────────────
+class _AnalyzingPage extends StatefulWidget {
+  final DailyLogEntry entry;
+  final VoidCallback onDone;
+
+  const _AnalyzingPage({required this.entry, required this.onDone});
+
+  @override
+  State<_AnalyzingPage> createState() => _AnalyzingPageState();
+}
+
+class _AnalyzingPageState extends State<_AnalyzingPage>
     with TickerProviderStateMixin {
+  int _visibleCount = 0;
   late final List<AnimationController> _barControllers;
   late final List<Animation<double>> _barAnimations;
-  final labels = MockVisionData.labels[ActivityType.training]!;
 
   @override
   void initState() {
     super.initState();
     _barControllers = List.generate(
-      labels.length,
+      _mockLabels.length,
       (i) => AnimationController(
         vsync: this,
-        duration: Duration(milliseconds: 600 + i * 80),
+        duration: const Duration(milliseconds: 500),
       ),
     );
-    _barAnimations = _barControllers.map((c) {
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(parent: c, curve: Curves.easeOut),
-      );
-    }).toList();
+    _barAnimations = _barControllers
+        .map((c) => Tween<double>(begin: 0, end: 1).animate(
+              CurvedAnimation(parent: c, curve: Curves.easeOut),
+            ))
+        .toList();
 
-    // 순차 실행
-    _startAnimations();
+    _runAnalysis();
   }
 
-  void _startAnimations() async {
-    for (int i = 0; i < _barControllers.length; i++) {
-      await Future.delayed(Duration(milliseconds: i * 100));
-      if (mounted) _barControllers[i].forward();
+  // Labels appear one by one; total ~2 s before advancing
+  void _runAnalysis() async {
+    for (int i = 0; i < _mockLabels.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+      setState(() => _visibleCount = i + 1);
+      _barControllers[i].forward();
     }
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) widget.onDone();
   }
 
   @override
   void dispose() {
-    for (final c in _barControllers) {
-      c.dispose();
-    }
+    for (final c in _barControllers) { c.dispose(); }
     super.dispose();
   }
 
@@ -175,59 +220,334 @@ class _LabelResultPageState extends State<_LabelResultPage>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // 사진
           _AnalysisPhotoCard(entry: widget.entry),
           const SizedBox(height: 16),
-          // 라벨 카드
           Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                ...List.generate(labels.length, (i) {
-                  final label = labels[i];
+                const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor:
+                        AlwaysStoppedAnimation(Color(0xFF4A8C62)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  '분석 중...',
+                  style: TextStyle(
+                    color: Color(0xFF1A3A2A),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ...List.generate(_mockLabels.length, (i) {
+                  if (i >= _visibleCount) return const SizedBox.shrink();
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: _LabelBar(
-                      label: label.label,
-                      confidence: label.confidence,
+                      label: _mockLabels[i].label,
+                      confidence: _mockLabels[i].confidence,
                       animation: _barAnimations[i],
                     ),
                   );
                 }),
-                const SizedBox(height: 8),
-                // 페이지 인디케이터
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (i) {
-                    return Container(
-                      width: i == 0 ? 10 : 8,
-                      height: i == 0 ? 10 : 8,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: i == 0
-                            ? const Color(0xFF1A3A2A)
-                            : const Color(0xFFCCCCCC),
-                      ),
-                    );
-                  }),
-                ),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-          _PrimaryButton(
-            label: '활동 결과 보기',
-            onTap: widget.onNext,
           ),
         ],
       ),
     );
   }
+}
+
+// ── Step 3: 활동 판별 결과 ─────────────────────────────────
+class _ActivityResultPage extends StatelessWidget {
+  final DailyLogEntry entry;
+  final VoidCallback onNext;
+
+  const _ActivityResultPage({required this.entry, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _AnalysisPhotoCard(entry: entry),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Column(
+              children: [
+                _ActivityIcon(type: ActivityType.outdoor),
+                SizedBox(height: 20),
+                Text(
+                  '야외 외출!',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A3A2A),
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '오늘의 활동이 인식되었어요',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4A8C62),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          _PrimaryButton(label: '리워드 받기', onTap: onNext),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Step 4: 리워드 지급 팝업 ──────────────────────────────
+class _RewardPage extends StatefulWidget {
+  final DailyLogEntry entry;
+  final VoidCallback onDone;
+
+  const _RewardPage({required this.entry, required this.onDone});
+
+  @override
+  State<_RewardPage> createState() => _RewardPageState();
+}
+
+class _RewardPageState extends State<_RewardPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _scale = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
+    );
+    _fade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Dimmed background showing previous step
+        SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              _AnalysisPhotoCard(entry: widget.entry, dimmed: true),
+              const SizedBox(height: 16),
+              Opacity(
+                opacity: 0.3,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 36, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Column(
+                    children: [
+                      _ActivityIcon(type: ActivityType.outdoor),
+                      SizedBox(height: 20),
+                      Text(
+                        '야외 외출',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1A3A2A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Animated popup card
+        Center(
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: Container(
+                width: 260,
+                padding: const EdgeInsets.symmetric(
+                    vertical: 36, horizontal: 32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.eco,
+                        color: Color(0xFF4A8C62), size: 56),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '야외 외출',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A3A2A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '+70P',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF4A8C62),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    GestureDetector(
+                      onTap: widget.onDone,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A3A2A),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          '나무에게 전달하기',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Shared widgets ────────────────────────────────────────
+
+class _AnalysisPhotoCard extends StatelessWidget {
+  final DailyLogEntry entry;
+  final bool dimmed;
+
+  const _AnalysisPhotoCard({required this.entry, this.dimmed = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 220,
+            color: const Color(0xFF7CB9A0),
+            child: const Icon(Icons.image, color: Colors.white54, size: 64),
+          ),
+          if (dimmed)
+            Container(
+              width: double.infinity,
+              height: 220,
+              color: Colors.black.withValues(alpha: 0.3),
+            ),
+          Positioned.fill(
+            child: CustomPaint(painter: _ScanCornerPainter()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanCornerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1A3A2A)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    const len = 20.0;
+    const pad = 12.0;
+
+    canvas.drawLine(Offset(pad, pad + len), Offset(pad, pad), paint);
+    canvas.drawLine(Offset(pad, pad), Offset(pad + len, pad), paint);
+    canvas.drawLine(
+        Offset(size.width - pad - len, pad), Offset(size.width - pad, pad), paint);
+    canvas.drawLine(
+        Offset(size.width - pad, pad), Offset(size.width - pad, pad + len), paint);
+    canvas.drawLine(
+        Offset(pad, size.height - pad - len), Offset(pad, size.height - pad), paint);
+    canvas.drawLine(
+        Offset(pad, size.height - pad), Offset(pad + len, size.height - pad), paint);
+    canvas.drawLine(
+        Offset(size.width - pad - len, size.height - pad),
+        Offset(size.width - pad, size.height - pad),
+        paint);
+    canvas.drawLine(
+        Offset(size.width - pad, size.height - pad - len),
+        Offset(size.width - pad, size.height - pad),
+        paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _LabelBar extends StatelessWidget {
@@ -271,13 +591,14 @@ class _LabelBar extends StatelessWidget {
         const SizedBox(height: 4),
         AnimatedBuilder(
           animation: animation,
-          builder: (_, __) => ClipRRect(
+          builder: (context, _) => ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: confidence * animation.value,
               minHeight: 6,
               backgroundColor: const Color(0xFFEEF3EE),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFF4A8C62)),
+              valueColor:
+                  const AlwaysStoppedAnimation(Color(0xFF4A8C62)),
             ),
           ),
         ),
@@ -286,294 +607,6 @@ class _LabelBar extends StatelessWidget {
   }
 }
 
-// ── 4단계: 활동 판별 결과 화면 ───────────────────────────
-class _ActivityResultPage extends StatelessWidget {
-  final DailyLogEntry entry;
-  final ActivityType activityType;
-  final VoidCallback onNext;
-
-  const _ActivityResultPage({
-    required this.entry,
-    required this.activityType,
-    required this.onNext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final result = MockVisionData.results[activityType]!;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // 사진
-          _AnalysisPhotoCard(entry: entry),
-          const SizedBox(height: 16),
-          // 활동 카드
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-            child: Column(
-              children: [
-                _ActivityIcon(type: activityType),
-                const SizedBox(height: 20),
-                Text(
-                  '${result.displayName}!',
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A3A2A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          _PrimaryButton(
-            label: '리워드 받기',
-            onTap: onNext,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 5단계: 리워드 팝업 화면 ──────────────────────────────
-class _RewardPage extends StatefulWidget {
-  final DailyLogEntry entry;
-  final ActivityType activityType;
-  final VoidCallback onDone;
-
-  const _RewardPage({
-    required this.entry,
-    required this.activityType,
-    required this.onDone,
-  });
-
-  @override
-  State<_RewardPage> createState() => _RewardPageState();
-}
-
-class _RewardPageState extends State<_RewardPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _popupController;
-  late final Animation<double> _scaleAnim;
-  late final Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _popupController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 450),
-    );
-    _scaleAnim = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _popupController, curve: Curves.elasticOut),
-    );
-    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _popupController, curve: Curves.easeIn),
-    );
-    _popupController.forward();
-  }
-
-  @override
-  void dispose() {
-    _popupController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final result = MockVisionData.results[widget.activityType]!;
-
-    return Stack(
-      children: [
-        // 배경 — 활동 판별 결과가 흐릿하게
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              _AnalysisPhotoCard(entry: widget.entry, dimmed: true),
-              const SizedBox(height: 16),
-              Opacity(
-                opacity: 0.35,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 36, horizontal: 20),
-                  child: Column(
-                    children: [
-                      _ActivityIcon(type: widget.activityType),
-                      const SizedBox(height: 20),
-                      Text(
-                        result.displayName,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A3A2A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // 팝업 오버레이
-        Center(
-          child: FadeTransition(
-            opacity: _fadeAnim,
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: GestureDetector(
-                onTap: widget.onDone,
-                child: Container(
-                  width: 220,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 36, horizontal: 40),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Reward!',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1A3A2A),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // 새싹 아이콘
-                      _SproutIcon(),
-                      const SizedBox(height: 20),
-                      Text(
-                        '+ ${result.points}P',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A3A2A),
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── 공용 위젯들 ──────────────────────────────────────────
-
-class _AnalysisPhotoCard extends StatelessWidget {
-  final DailyLogEntry entry;
-  final bool dimmed;
-
-  const _AnalysisPhotoCard({required this.entry, this.dimmed = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            height: 220,
-            color: const Color(0xFF7CB9A0),
-            child: const Icon(Icons.image, color: Colors.white54, size: 64),
-          ),
-          if (dimmed)
-            Container(
-              width: double.infinity,
-              height: 220,
-              color: Colors.black.withOpacity(0.3),
-            ),
-          // 스캔 코너 장식
-          Positioned.fill(
-            child: CustomPaint(painter: _ScanCornerPainter()),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 사진 네 모서리의 스캔 코너 UI (이미지_분석.png 참고)
-class _ScanCornerPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF1A3A2A)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    const len = 20.0;
-    const pad = 12.0;
-
-    // 좌상
-    canvas.drawLine(Offset(pad, pad + len), Offset(pad, pad), paint);
-    canvas.drawLine(Offset(pad, pad), Offset(pad + len, pad), paint);
-    // 우상
-    canvas.drawLine(
-        Offset(size.width - pad - len, pad),
-        Offset(size.width - pad, pad),
-        paint);
-    canvas.drawLine(
-        Offset(size.width - pad, pad),
-        Offset(size.width - pad, pad + len),
-        paint);
-    // 좌하
-    canvas.drawLine(
-        Offset(pad, size.height - pad - len),
-        Offset(pad, size.height - pad),
-        paint);
-    canvas.drawLine(
-        Offset(pad, size.height - pad),
-        Offset(pad + len, size.height - pad),
-        paint);
-    // 우하
-    canvas.drawLine(
-        Offset(size.width - pad - len, size.height - pad),
-        Offset(size.width - pad, size.height - pad),
-        paint);
-    canvas.drawLine(
-        Offset(size.width - pad, size.height - pad - len),
-        Offset(size.width - pad, size.height - pad),
-        paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// 활동 타입별 SVG-style 아이콘
 class _ActivityIcon extends StatelessWidget {
   final ActivityType type;
 
@@ -581,13 +614,10 @@ class _ActivityIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 110,
       height: 110,
-      padding: const EdgeInsets.all(18),
-      child: CustomPaint(
-        painter: _ActivityIconPainter(type: type),
-      ),
+      child: CustomPaint(painter: _ActivityIconPainter(type: type)),
     );
   }
 }
@@ -606,27 +636,34 @@ class _ActivityIconPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     switch (type) {
-      case ActivityType.training:
-        _drawShoe(canvas, size, paint);
-        break;
       case ActivityType.outdoor:
         _drawTree(canvas, size, paint);
-        break;
+      case ActivityType.training:
+        _drawShoe(canvas, size, paint);
       case ActivityType.cafe:
         _drawCoffee(canvas, size, paint);
-        break;
       case ActivityType.walking:
         _drawWalk(canvas, size, paint);
-        break;
       default:
         break;
     }
   }
 
+  void _drawTree(Canvas canvas, Size size, Paint p) {
+    final w = size.width;
+    final h = size.height;
+    canvas.drawLine(Offset(w * 0.5, h * 0.6), Offset(w * 0.5, h * 0.9), p);
+    final leaf = Path()
+      ..moveTo(w * 0.5, h * 0.1)
+      ..lineTo(w * 0.15, h * 0.65)
+      ..lineTo(w * 0.85, h * 0.65)
+      ..close();
+    canvas.drawPath(leaf, p);
+  }
+
   void _drawShoe(Canvas canvas, Size size, Paint p) {
     final w = size.width;
     final h = size.height;
-    // 러닝화 실루엣 (트레드밀 아이콘 스타일)
     final path = Path()
       ..moveTo(w * 0.1, h * 0.75)
       ..lineTo(w * 0.15, h * 0.55)
@@ -640,44 +677,12 @@ class _ActivityIconPainter extends CustomPainter {
       ..lineTo(w * 0.1, h * 0.75)
       ..close();
     canvas.drawPath(path, p);
-    // 밑창
-    canvas.drawLine(
-      Offset(w * 0.08, h * 0.78),
-      Offset(w * 0.92, h * 0.78),
-      p,
-    );
-    // 끈 라인
-    canvas.drawLine(
-      Offset(w * 0.35, h * 0.42),
-      Offset(w * 0.45, h * 0.55),
-      p..strokeWidth = 2,
-    );
-    canvas.drawLine(
-      Offset(w * 0.5, h * 0.39),
-      Offset(w * 0.58, h * 0.53),
-      p,
-    );
-    p.strokeWidth = 3.5;
-  }
-
-  void _drawTree(Canvas canvas, Size size, Paint p) {
-    final w = size.width;
-    final h = size.height;
-    // 나무 몸통
-    canvas.drawLine(Offset(w * 0.5, h * 0.6), Offset(w * 0.5, h * 0.9), p);
-    // 삼각 잎
-    final leaf = Path()
-      ..moveTo(w * 0.5, h * 0.1)
-      ..lineTo(w * 0.15, h * 0.65)
-      ..lineTo(w * 0.85, h * 0.65)
-      ..close();
-    canvas.drawPath(leaf, p);
+    canvas.drawLine(Offset(w * 0.08, h * 0.78), Offset(w * 0.92, h * 0.78), p);
   }
 
   void _drawCoffee(Canvas canvas, Size size, Paint p) {
     final w = size.width;
     final h = size.height;
-    // 컵
     final cup = Path()
       ..moveTo(w * 0.2, h * 0.3)
       ..lineTo(w * 0.3, h * 0.8)
@@ -685,24 +690,15 @@ class _ActivityIconPainter extends CustomPainter {
       ..lineTo(w * 0.8, h * 0.3)
       ..close();
     canvas.drawPath(cup, p);
-    // 손잡이
     canvas.drawArc(
       Rect.fromLTWH(w * 0.7, h * 0.4, w * 0.2, h * 0.25),
-      -1.57,
-      3.14,
-      false,
-      p,
+      -1.57, 3.14, false, p,
     );
-    // 증기
-    canvas.drawLine(Offset(w * 0.38, h * 0.18), Offset(w * 0.42, h * 0.06), p);
-    canvas.drawLine(Offset(w * 0.5, h * 0.15), Offset(w * 0.5, h * 0.03), p);
-    canvas.drawLine(Offset(w * 0.62, h * 0.18), Offset(w * 0.58, h * 0.06), p);
   }
 
   void _drawWalk(Canvas canvas, Size size, Paint p) {
     final w = size.width;
     final h = size.height;
-    // 사람 실루엣
     canvas.drawCircle(Offset(w * 0.5, h * 0.15), w * 0.1, p);
     canvas.drawLine(Offset(w * 0.5, h * 0.25), Offset(w * 0.5, h * 0.6), p);
     canvas.drawLine(Offset(w * 0.5, h * 0.4), Offset(w * 0.3, h * 0.55), p);
@@ -712,70 +708,9 @@ class _ActivityIconPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ActivityIconPainter old) =>
-      old.type != type;
+  bool shouldRepaint(covariant _ActivityIconPainter old) => old.type != type;
 }
 
-/// 새싹 아이콘 (리워드 팝업용)
-class _SproutIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 72,
-      child: CustomPaint(painter: _SproutPainter()),
-    );
-  }
-}
-
-class _SproutPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stemPaint = Paint()
-      ..color = const Color(0xFF8B6914)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final leafPaint = Paint()
-      ..color = const Color(0xFF6DBE45)
-      ..style = PaintingStyle.fill;
-
-    final darkLeafPaint = Paint()
-      ..color = const Color(0xFF4A9E2F)
-      ..style = PaintingStyle.fill;
-
-    final w = size.width;
-    final h = size.height;
-
-    // 줄기
-    final stemPath = Path()
-      ..moveTo(w * 0.5, h * 0.95)
-      ..quadraticBezierTo(w * 0.5, h * 0.65, w * 0.5, h * 0.45);
-    canvas.drawPath(stemPath, stemPaint);
-
-    // 왼쪽 잎
-    final leftLeaf = Path()
-      ..moveTo(w * 0.5, h * 0.55)
-      ..quadraticBezierTo(w * 0.15, h * 0.35, w * 0.2, h * 0.1)
-      ..quadraticBezierTo(w * 0.45, h * 0.3, w * 0.5, h * 0.55)
-      ..close();
-    canvas.drawPath(leftLeaf, leafPaint);
-
-    // 오른쪽 잎
-    final rightLeaf = Path()
-      ..moveTo(w * 0.5, h * 0.45)
-      ..quadraticBezierTo(w * 0.85, h * 0.25, w * 0.82, h * 0.0)
-      ..quadraticBezierTo(w * 0.58, h * 0.2, w * 0.5, h * 0.45)
-      ..close();
-    canvas.drawPath(rightLeaf, darkLeafPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-// ── 공용 기본 버튼 ────────────────────────────────────────
 class _PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
