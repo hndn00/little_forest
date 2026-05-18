@@ -33,11 +33,14 @@ class _DailyLogAnalysisScreenState extends State<DailyLogAnalysisScreen> {
   }
 
   void _onRewardConfirmed() {
-    AppEventBus().emit(SettLogUploaded(capturedAt: widget.entry.capturedAt));
+    final points = widget.entry.activityResult?.points ?? 70;
+    AppEventBus().emit(
+      SettLogUploaded(capturedAt: widget.entry.capturedAt, points: points),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('나무가 성장했어요!'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text('나무가 성장했어요! +${points}P'),
+        duration: const Duration(seconds: 2),
       ),
     );
     Navigator.pop(context);
