@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import '../../models/daily_log_models.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/bottom_nav.dart';
 import 'daily_log_detail_screen.dart';
 
 class DailyLogListScreen extends StatefulWidget {
@@ -14,6 +16,8 @@ class DailyLogListScreen extends StatefulWidget {
 class _DailyLogListScreenState extends State<DailyLogListScreen> {
   // 현재 선택된 날짜 (Wed 7 기준)
   int _selectedDay = 2; // 0=Mon, 1=Tue, 2=Wed ...
+  // FAB로 진입한 화면이므로 하단 탭 선택 없음
+  static const int _bottomNavIndex = -1;
 
   final List<_WeekDay> _weekDays = [
     _WeekDay('Mon', 5),
@@ -51,6 +55,17 @@ class _DailyLogListScreenState extends State<DailyLogListScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _bottomNavIndex,
+        onItemTapped: (_) => Navigator.pop(context),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: AppColors.forestDeep,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 

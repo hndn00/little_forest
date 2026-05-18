@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:little_forest/screens/daily_log/daily_log_list_screen.dart';
 import 'package:little_forest/screens/my_plants_screen.dart';
 import 'package:little_forest/screens/map_screen.dart';
 import 'package:little_forest/theme/app_theme.dart';
+import 'package:little_forest/widgets/bottom_nav.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -68,9 +70,15 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _bottomIndex,
+        onItemTapped: (index) => setState(() => _bottomIndex = index),
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DailyLogListScreen()),
+        ),
         backgroundColor: AppColors.forestDeep,
         shape: const CircleBorder(),
         child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
@@ -103,37 +111,4 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      color: Colors.white,
-      elevation: 8,
-      child: SizedBox(
-        height: 60,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(Icons.home_outlined, 0),
-            _buildNavItem(Icons.people_outline, 1),
-            const SizedBox(width: 48), // FAB 자리
-            _buildNavItem(Icons.forest_outlined, 2),
-            _buildNavItem(Icons.person_outline, 3),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, int index) {
-    final isSelected = _bottomIndex == index;
-    return IconButton(
-      onPressed: () => setState(() => _bottomIndex = index),
-      icon: Icon(
-        icon,
-        color: isSelected ? AppColors.forestDeep : Colors.grey.shade400,
-        size: 24,
-      ),
-    );
-  }
 }
