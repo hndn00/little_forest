@@ -1,16 +1,54 @@
-# little_forest
+# Little Forest (리틀 포레스트)
 
-A new Flutter project.
+행동활성화 이론 기반 외출 동기부여 앱. 무기력 청년을 위한 디지털 정원.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 개요
 
-A few resources to get you started if this is your first Flutter project:
+리틀 포레스트는 사회적 고립 경계에 있는 청년들이 작은 외출과 일상 활동을 통해 자신만의 디지털 나무를 키워가는 모바일 앱입니다. 앱을 동기 부여 도구로 삼아 실제 자연과의 접촉을 유도하는 것이 핵심 철학입니다.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 주요 기능
+
+**나의 디지털 나무 (Personal Garden)**
+- 매일 외출 거리·횟수에 따라 단계별 나무 성장
+- 특정 오전 시간대 활동 시 보상 강화 → 생활 리듬 교정 유도
+- 데일리 로그: 타임스탬프 사진 기록 + AI 이미지 분석으로 활동 자동 판별 및 포인트 지급
+
+**AI 챗봇 (포레스트 AI)**
+- 매일 활동 추천 및 동기 부여 메시지 제공
+- 챗봇의 가상 일상 공유를 통한 행동 활성화
+
+**실시간 탐험 지도 & 사회적 상호작용**
+- GPS 기반 실시간 캐릭터 이동
+- 익명 응원 시스템 (하이파이브 / 꽃잎 뿌리기): 대화 부담 없는 완만한 사회적 연결
+
+---
+
+## 시작하기
+
+```bash
+# 의존성 설치
+flutter pub get
+
+# 앱 실행
+flutter run
+```
+
+---
+
+## 타겟 사용자
+
+PHQ-2 기준 경증 이상의 우울 증상이 있거나, 외출 의지는 있으나 만성적 무기력·사회 불안으로 일상 유지가 어려운 청년층.
+
+---
+
+## 기대 효과
+
+| 영역 | 효과 |
+|------|------|
+| 심리적 | 성취감 누적을 통한 자기효능감 증진, 우울감 감소 |
+| 행동적 | 규칙적인 외부 활동 습관 형성, 행동 반경 점진적 확대 |
+| 사회적 | 비대면에서 시작해 대면으로 확장되는 완만한 사회적 연결 |
