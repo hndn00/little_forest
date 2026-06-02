@@ -1,23 +1,24 @@
-// screens/daily_log/daily_log_list_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../models/daily_log_models.dart';
+import '../../providers/daily_log_provider.dart';
+import '../../services/camera_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav.dart';
 import 'daily_log_detail_screen.dart';
 
-class DailyLogListScreen extends StatefulWidget {
+class DailyLogListScreen extends ConsumerStatefulWidget {
   const DailyLogListScreen({super.key});
 
   @override
-  State<DailyLogListScreen> createState() => _DailyLogListScreenState();
+  ConsumerState<DailyLogListScreen> createState() => _DailyLogListScreenState();
 }
 
-class _DailyLogListScreenState extends State<DailyLogListScreen> {
-  // 현재 선택된 날짜 (Wed 7 기준)
-  int _selectedDay = 2; // 0=Mon, 1=Tue, 2=Wed ...
-  // FAB로 진입한 화면이므로 하단 탭 선택 없음
+class _DailyLogListScreenState extends ConsumerState<DailyLogListScreen> {
+  int _selectedDay = 2;
   static const int _bottomNavIndex = -1;
+  static const String _uid = 'anonymous';
 
   final List<_WeekDay> _weekDays = [
     _WeekDay('Mon', 5),
@@ -29,8 +30,31 @@ class _DailyLogListScreenState extends State<DailyLogListScreen> {
     _WeekDay('Sun', 11),
   ];
 
+  Future<void> _onCameraFabTapped() async {
+    final XFile? xfile = await CameraService.capturePhoto(context);
+    if (xfile == null || !mounted) return;
+
+    ref.read(dailyLogProvider.notifier).addPhoto(xfile, _uid).catchError((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('업로드에 실패했습니다.'),
+            action: SnackBarAction(
+              label: '재시도',
+              onPressed: () =>
+                  ref.read(dailyLogProvider.notifier).addPhoto(xfile, _uid),
+            ),
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final logState = ref.watch(dailyLogProvider);
+    final allEntries = logState.photos;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEEF3EE),
       body: SafeArea(
@@ -40,17 +64,36 @@ class _DailyLogListScreenState extends State<DailyLogListScreen> {
             _buildWeekBar(),
             const SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: mockDailyLogs.length,
-                itemBuilder: (context, index) {
-                  final entry = mockDailyLogs[index];
-                  return _LogListItem(
-                    entry: entry,
-                    onTap: () => _openDetail(entry),
-                  );
-                },
-              ),
+              child: allEntries.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt_outlined,
+                              size: 48, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text(
+                            '카메라 버튼을 눌러\n오늘의 사진을 기록해보세요',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: allEntries.length,
+                      itemBuilder: (context, index) {
+                        final entry = allEntries[index];
+                        return _LogListItem(
+                          entry: entry,
+                          onTap: () => _openDetail(entry),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -60,7 +103,7 @@ class _DailyLogListScreenState extends State<DailyLogListScreen> {
         onItemTapped: (_) => Navigator.pop(context),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: _onCameraFabTapped,
         backgroundColor: AppColors.forestDeep,
         shape: const CircleBorder(),
         child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
@@ -136,7 +179,9 @@ class _LogListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hour = entry.capturedAt.hour;
-    final timeLabel = '$hour:00';
+    final minute = entry.capturedAt.minute;
+    final timeLabel =
+        '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
     return GestureDetector(
       onTap: onTap,
@@ -146,62 +191,110 @@ class _LogListItem extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
-          children: [
-            // 썸네일
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(16),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Thumbnail
+              ClipRRect(
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(16),
+                ),
+                child: _Thumbnail(entry: entry),
               ),
-              child: _MockImage(
-                width: 120,
-                height: 100,
-                seed: entry.id,
+              const SizedBox(width: 20),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Text(
+                        timeLabel,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2D6A4F),
+                        ),
+                      ),
+                      if (entry.isUploading) ...[
+                        const SizedBox(width: 8),
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 20),
-            // 시간
-            Text(
-              timeLabel,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2D6A4F),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── 목업용 색상 플레이스홀더 이미지 ─────────────────────────
-class _MockImage extends StatelessWidget {
-  final double width;
-  final double height;
-  final String seed;
+class _Thumbnail extends StatelessWidget {
+  final DailyLogEntry entry;
 
-  const _MockImage({
-    required this.width,
-    required this.height,
-    required this.seed,
-  });
+  const _Thumbnail({required this.entry});
 
   @override
   Widget build(BuildContext context) {
-    // 실제 앱에서는 Image.file() 또는 Image.network()로 교체
+    const double w = 120, h = 100;
+
+    Widget? photo;
+
+    // 1) In-memory bytes — most reliable across all platforms
+    if (entry.imageBytes != null) {
+      photo = Image.memory(
+        entry.imageBytes!,
+        width: w,
+        height: h,
+        fit: BoxFit.cover,
+      );
+    }
+
+    if (photo == null) {
+      return _placeholder(w, h, entry.id);
+    }
+
+    return Stack(
+      children: [
+        photo,
+        if (entry.isUploading)
+          Container(
+            width: w,
+            height: h,
+            color: Colors.black26,
+            child: const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _placeholder(double w, double h, String seed) {
     final colors = [
       const Color(0xFFA8D5B5),
       const Color(0xFF7CB9A0),
       const Color(0xFFD4E8DC),
       const Color(0xFF4A8C62),
     ];
-    final color = colors[seed.hashCode % colors.length];
     return Container(
-      width: width,
-      height: height,
-      color: color,
+      width: w,
+      height: h,
+      color: colors[seed.hashCode % colors.length],
       child: const Icon(Icons.image, color: Colors.white54, size: 32),
     );
   }

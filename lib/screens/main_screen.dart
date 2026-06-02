@@ -1,20 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:little_forest/screens/daily_log/daily_log_list_screen.dart';
 import 'package:little_forest/screens/my_plants_screen.dart';
 import 'package:little_forest/screens/map_screen.dart';
 import 'package:little_forest/theme/app_theme.dart';
 import 'package:little_forest/widgets/bottom_nav.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:little_forest/services/camera_service.dart';
+import 'package:little_forest/providers/daily_log_provider.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _selectedTab = 0; // 0: My Plants, 1: Map
+class _MainScreenState extends ConsumerState<MainScreen> {
+  int _selectedTab = 0;
   int _bottomIndex = 0;
+
+  // Hard-coded UID placeholder — replace with FirebaseAuth.instance.currentUser!.uid
+  static const String _uid = 'anonymous';
+
+  Future<void> _onCameraFabTapped() async {
+    final XFile? xfile = await CameraService.capturePhoto(context);
+    if (xfile == null || !mounted) return;
+
+    ref.read(dailyLogProvider.notifier).addPhoto(xfile, _uid).catchError((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('업로드에 실패했습니다.'),
+            action: SnackBarAction(
+              label: '재시도',
+              onPressed: () =>
+                  ref.read(dailyLogProvider.notifier).addPhoto(xfile, _uid),
+            ),
+          ),
+        );
+      }
+    });
+
+    // Navigate to Daily Log immediately (photo shows with loading indicator)
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const DailyLogListScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,10 +110,7 @@ class _MainScreenState extends State<MainScreen> {
         onItemTapped: (index) => setState(() => _bottomIndex = index),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const DailyLogListScreen()),
-        ),
+        onPressed: _onCameraFabTapped,
         backgroundColor: AppColors.forestDeep,
         shape: const CircleBorder(),
         child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
@@ -110,5 +142,4 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
 }

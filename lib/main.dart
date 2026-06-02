@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:little_forest/theme/app_theme.dart';
 import 'package:little_forest/screens/main_screen.dart';
 
 void main() {
-  runApp(const LittleForestApp());
+  runApp(const ProviderScope(child: LittleForestApp()));
 }
 
 class LittleForestApp extends StatelessWidget {

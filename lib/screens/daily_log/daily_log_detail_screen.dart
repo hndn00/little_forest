@@ -11,8 +11,8 @@ class DailyLogDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hour = entry.capturedAt.hour;
-    final timeLabel = '$hour:00';
+    final timeLabel =
+        '${entry.capturedAt.hour.toString().padLeft(2, '0')}:${entry.capturedAt.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFEEF3EE),
@@ -36,7 +36,14 @@ class DailyLogDetailScreen extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(20),
                       ),
-                      child: _MockPhotoLarge(),
+                      child: entry.imageBytes != null
+                          ? Image.memory(
+                              entry.imageBytes!,
+                              width: double.infinity,
+                              height: 260,
+                              fit: BoxFit.cover,
+                            )
+                          : _MockPhotoLarge(),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),

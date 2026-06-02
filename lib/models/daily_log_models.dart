@@ -1,5 +1,7 @@
 // models/daily_log_models.dart
 
+import 'dart:typed_data';
+
 enum ActivityType { training, outdoor, cafe, walking, none }
 
 class VisionLabel {
@@ -24,15 +26,37 @@ class ActivityResult {
 class DailyLogEntry {
   final String id;
   final DateTime capturedAt;
-  final String imagePath; // asset or file path
+  final String imagePath;
+  final String? imageUrl;
+  final Uint8List? imageBytes; // in-memory bytes for immediate display
   final ActivityResult? activityResult;
+  final bool isUploading;
 
   const DailyLogEntry({
     required this.id,
     required this.capturedAt,
     required this.imagePath,
+    this.imageUrl,
+    this.imageBytes,
     this.activityResult,
+    this.isUploading = false,
   });
+
+  DailyLogEntry copyWith({
+    String? imageUrl,
+    bool? isUploading,
+    ActivityResult? activityResult,
+  }) {
+    return DailyLogEntry(
+      id: id,
+      capturedAt: capturedAt,
+      imagePath: imagePath,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imageBytes: imageBytes,
+      activityResult: activityResult ?? this.activityResult,
+      isUploading: isUploading ?? this.isUploading,
+    );
+  }
 }
 
 // ── Mock Vision API 라벨 ──────────────────────────────────

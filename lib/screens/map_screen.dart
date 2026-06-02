@@ -59,49 +59,49 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildMapArea() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/map_image.png',
-                fit: BoxFit.cover,
-              ),
-            ),
-            ..._avatarDots.map((dot) => Positioned(
-              left: constraints.maxWidth * dot.left,
-              top: constraints.maxHeight * dot.top,
-              child: _buildDotWidget(dot),
-            )),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: _buildGestureButtons(),
-            ),
-          ],
-        );
-      },
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/map_image.png',
+            fit: BoxFit.cover,
+          ),
+        ),
+        ..._avatarDots.map((dot) => _buildAvatarDot(dot)),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 16,
+          child: _buildGestureButtons(),
+        ),
+      ],
     );
   }
 
-  Widget _buildDotWidget(_AvatarDot dot) {
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        color: dot.color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
+  Widget _buildAvatarDot(_AvatarDot dot) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Positioned(
+          left: constraints.maxWidth * dot.left,
+          top: constraints.maxHeight * dot.top,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: dot.color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

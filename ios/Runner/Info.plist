@@ -41,6 +41,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>오늘의 활동 사진을 찍어 Daily Log에 기록합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>사진 보관함에서 사진을 가져옵니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>찍은 사진을 사진 보관함에 저장합니다.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
