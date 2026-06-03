@@ -497,11 +497,20 @@ class _AnalysisPhotoCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: Stack(
         children: [
-          Container(
+          SizedBox(
             width: double.infinity,
             height: 220,
-            color: const Color(0xFF7CB9A0),
-            child: const Icon(Icons.image, color: Colors.white54, size: 64),
+            child: entry.imageBytes != null
+                ? Image.memory(
+                    entry.imageBytes!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: 220,
+                  )
+                : Container(
+                    color: const Color(0xFF7CB9A0),
+                    child: const Icon(Icons.image, color: Colors.white54, size: 64),
+                  ),
           ),
           if (dimmed)
             Container(

@@ -214,18 +214,6 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                TextButton(
-                  onPressed: () => _addPoints(50),
-                  child: Text(
-                    '+50P (테스트)',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 12,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
