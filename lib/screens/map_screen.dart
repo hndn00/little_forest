@@ -59,49 +59,50 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildMapArea() {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/map_image.png',
-            fit: BoxFit.cover,
-          ),
-        ),
-        ..._avatarDots.map((dot) => _buildAvatarDot(dot)),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 16,
-          child: _buildGestureButtons(),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/map_image.png',
+              fit: BoxFit.cover,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+            ),
+            ..._avatarDots.map((dot) => _buildAvatarDot(dot, constraints)),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: _buildGestureButtons(),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildAvatarDot(_AvatarDot dot) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Positioned(
-          left: constraints.maxWidth * dot.left,
-          top: constraints.maxHeight * dot.top,
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: dot.color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
+  Widget _buildAvatarDot(_AvatarDot dot, BoxConstraints constraints) {
+    return Positioned(
+      left: constraints.maxWidth * dot.left,
+      top: constraints.maxHeight * dot.top,
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: dot.color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 4,
+              offset: Offset(0, 2),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
