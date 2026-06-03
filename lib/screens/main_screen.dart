@@ -61,16 +61,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.forestDeep,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.forest, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 8),
                   Text(
                     'LittleForest',
                     style: TextStyle(
