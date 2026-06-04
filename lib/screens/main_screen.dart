@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:little_forest/screens/daily_log/daily_log_list_screen.dart';
 import 'package:little_forest/screens/my_plants_screen.dart';
 import 'package:little_forest/screens/map_screen.dart';
+import 'package:little_forest/screens/chatbot_screen.dart';
 import 'package:little_forest/theme/app_theme.dart';
 import 'package:little_forest/widgets/bottom_nav.dart';
 import 'package:image_picker/image_picker.dart';
@@ -97,7 +98,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
       bottomNavigationBar: AppBottomNavBar(
         selectedIndex: _bottomIndex,
-        onItemTapped: (index) => setState(() => _bottomIndex = index),
+        onItemTapped: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+            );
+          } else {
+            setState(() => _bottomIndex = index);
+          }
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _onCameraFabTapped,
