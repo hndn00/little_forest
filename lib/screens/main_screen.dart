@@ -33,6 +33,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('업로드에 실패했습니다.'),
+            behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: '재시도',
               onPressed: () =>
