@@ -225,8 +225,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Widget _buildAvatar() {
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppColors.forestDeep,
-      child: const Text('🌱', style: TextStyle(fontSize: 16)),
+      backgroundImage: const AssetImage('assets/images/chatbot_profile.png'),
     );
   }
 
